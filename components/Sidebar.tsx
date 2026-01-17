@@ -30,15 +30,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ devices, activeDeviceId, onSel
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
 
+  // Extract ID from shareUrl for display
+  const displayId = new URLSearchParams(shareUrl.split('?')[1]).get('hostId') || 'Connecting...';
+
   useEffect(() => {
     if (!shareUrl) return;
     
-    // Generate QR code for the specific room URL
     QRCode.toDataURL(shareUrl, {
       width: 240,
       margin: 2,
       color: {
-        dark: '#0f172a', // slate-900
+        dark: '#0f172a',
         light: '#ffffff',
       },
       errorCorrectionLevel: 'M'
@@ -83,7 +85,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ devices, activeDeviceId, onSel
                 )}
             </div>
             <p className="text-[11px] text-slate-400 mb-3 leading-tight">
-                Scan with <strong>WeChat</strong> or Camera<br/>to join this session.
+                Scan with <strong>Camera</strong> or <strong>WeChat</strong><br/>to join this session.
             </p>
             
             <button 
@@ -115,7 +117,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ devices, activeDeviceId, onSel
                 <div className="animate-pulse-slow inline-block p-2 bg-slate-800 rounded-full mb-2">
                     <svg className="w-5 h-5 text-slate-500" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
                 </div>
-                <p className="text-xs text-slate-500">Waiting for others to join...</p>
+                <p className="text-xs text-slate-500">Waiting for connections...</p>
             </div>
         ) : (
             <div className="space-y-2">
@@ -155,9 +157,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ devices, activeDeviceId, onSel
             <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-primary-500 to-purple-600 shadow-lg flex items-center justify-center text-xs font-bold text-white border border-white/10">
                 ME
             </div>
-            <div className="flex-1">
-                <p className="text-sm font-medium text-white">My Device</p>
-                <p className="text-[10px] text-slate-500">Host • {window.location.hostname || 'Localhost'}</p>
+            <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">My Device</p>
+                <p className="text-[10px] text-slate-500 truncate" title={displayId}>
+                    ID: {displayId}
+                </p>
             </div>
          </div>
       </div>
