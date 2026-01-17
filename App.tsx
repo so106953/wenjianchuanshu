@@ -199,7 +199,7 @@ const App: React.FC = () => {
       peer.on('error', (err) => {
           console.error('❌ PeerJS Error:', err);
           if (err.type === 'peer-unavailable') {
-              alert('Host not found. Please scan the QR code again or check connection.');
+              alert('Device not found. Please check the ID and try again.');
           }
       });
     };
@@ -212,6 +212,14 @@ const App: React.FC = () => {
         // peerRef.current?.destroy(); 
     };
   }, [setupConnection]);
+
+  // Handle Manual Connection from Sidebar
+  const handleManualConnect = (targetId: string) => {
+      if (!peerRef.current) return;
+      console.log('Attempting manual connection to:', targetId);
+      const conn = peerRef.current.connect(targetId, { reliable: true });
+      setupConnection(conn);
+  };
 
   const handleFileUpload = async (fileList: FileList) => {
     const newFiles: TransferFile[] = Array.from(fileList).map(file => ({
@@ -282,7 +290,8 @@ const App: React.FC = () => {
             devices={devices} 
             activeDeviceId={activeDeviceId} 
             onSelectDevice={setActiveDeviceId}
-            shareUrl={shareUrl} 
+            shareUrl={shareUrl}
+            onManualConnect={handleManualConnect}
         />
         <main className="flex-1 flex flex-col relative min-w-0">
              <TransferArea 

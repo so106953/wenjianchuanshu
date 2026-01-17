@@ -7,6 +7,7 @@ interface SidebarProps {
   activeDeviceId: string | null;
   onSelectDevice: (id: string) => void;
   shareUrl: string;
+  onManualConnect: (id: string) => void;
 }
 
 const getDeviceIcon = (type: DeviceType) => {
@@ -26,9 +27,10 @@ const getDeviceIcon = (type: DeviceType) => {
   }
 };
 
-export const Sidebar: React.FC<SidebarProps> = ({ devices, activeDeviceId, onSelectDevice, shareUrl }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ devices, activeDeviceId, onSelectDevice, shareUrl, onManualConnect }) => {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied'>('idle');
+  const [manualId, setManualId] = useState('');
 
   // Extract ID from shareUrl for display
   const displayId = new URLSearchParams(shareUrl.split('?')[1]).get('hostId') || 'Connecting...';
@@ -84,30 +86,37 @@ export const Sidebar: React.FC<SidebarProps> = ({ devices, activeDeviceId, onSel
                    </div>
                 )}
             </div>
-            <p className="text-[11px] text-slate-400 mb-3 leading-tight">
-                Scan with <strong>Camera</strong> or <strong>WeChat</strong><br/>to join this session.
-            </p>
             
             <button 
               onClick={copyLink}
-              className={`w-full py-2 text-xs font-bold rounded transition-all flex items-center justify-center gap-2 ${
+              className={`w-full py-2 text-xs font-bold rounded transition-all flex items-center justify-center gap-2 mb-4 ${
                   copyStatus === 'copied' 
                   ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/50' 
                   : 'bg-primary-600 hover:bg-primary-500 text-white shadow-lg shadow-primary-600/20'
               }`}
             >
-              {copyStatus === 'copied' ? (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  Link Copied!
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-                  Copy Session Link
-                </>
-              )}
+              {copyStatus === 'copied' ? 'Link Copied!' : 'Copy Session Link'}
             </button>
+
+            {/* Manual Connection Input */}
+            <div className="w-full pt-4 border-t border-slate-700/50">
+                <p className="text-[10px] text-slate-400 mb-2 text-left">Or connect by ID:</p>
+                <div className="flex gap-2">
+                    <input 
+                        type="text" 
+                        value={manualId}
+                        onChange={(e) => setManualId(e.target.value)}
+                        placeholder="Enter ID (e.g., ns-abcd)"
+                        className="flex-1 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-xs text-white placeholder-slate-600 focus:outline-none focus:border-primary-500"
+                    />
+                    <button 
+                        onClick={() => { if(manualId) onManualConnect(manualId); }}
+                        className="bg-slate-700 hover:bg-slate-600 text-white px-2 py-1 rounded text-xs transition-colors"
+                    >
+                        Connect
+                    </button>
+                </div>
+            </div>
         </div>
 
         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 px-1">Session Devices</h3>
@@ -159,9 +168,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ devices, activeDeviceId, onSel
             </div>
             <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-white truncate">My Device</p>
-                <p className="text-[10px] text-slate-500 truncate" title={displayId}>
-                    ID: {displayId}
-                </p>
+                <div className="flex items-center gap-1 text-[10px] text-slate-400 cursor-pointer hover:text-white" onClick={() => {navigator.clipboard.writeText(displayId);}} title="Click to copy ID">
+                    <span className="truncate max-w-[100px]">{displayId}</span>
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                </div>
             </div>
          </div>
       </div>
