@@ -14,7 +14,6 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
   const [previewFile, setPreviewFile] = useState<TransferFile | null>(null);
   const [textContent, setTextContent] = useState<string>('');
 
-  // Handle preview logic
   useEffect(() => {
     if (previewFile?.type === FileType.TEXT) {
       previewFile.fileObject.text().then(setTextContent).catch(() => setTextContent("Error reading text content."));
@@ -52,7 +51,6 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
   };
 
   const renderAnalysisStatus = (file: TransferFile) => {
-    // Only show analysis for files we own or have received
     if (file.analysisStatus === 'analyzing') {
       return (
         <span className="flex items-center gap-1.5 text-xs text-amber-400 bg-amber-400/10 px-2 py-1 rounded-full border border-amber-400/20">
@@ -76,7 +74,6 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
   };
 
   const renderTransferStatus = (file: TransferFile) => {
-      // Don't show status for files from others, just "Received" implied by "From: XYZ"
       if (file.fromDevice !== 'Me') {
           return <span className="text-[10px] text-emerald-400 font-bold bg-emerald-400/10 px-2 py-0.5 rounded">RECEIVED</span>;
       }
@@ -103,10 +100,11 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  // Files ready to send
+  // Logic: Show send button if files are queued. Disable if no device.
   const pendingFilesCount = files.filter(f => f.fromDevice === 'Me' && f.transferStatus === 'queued').length;
+  const showSendArea = pendingFilesCount > 0;
+  const isSendDisabled = !activeDevice;
 
-  // Preview Modal Content (Keep existing code)
   const renderPreviewContent = () => {
       if (!previewFile) return null;
       switch(previewFile.type) {
@@ -139,21 +137,26 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
       <div className="h-16 border-b border-slate-700 flex items-center justify-between px-8 bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
         <div>
           <h2 className="text-lg font-medium text-white">
-            {activeDevice ? `Connected to ${activeDevice.name}` : 'Select a device'}
+            {activeDevice ? `Connected to ${activeDevice.name}` : 'No device connected'}
           </h2>
           <p className="text-xs text-slate-500">
-            {activeDevice ? 'Ready to transfer' : 'Choose a device from the sidebar'}
+            {activeDevice ? 'Ready to transfer' : 'Scan QR code to connect'}
           </p>
         </div>
         
-        {/* Send Button in Header if files are pending */}
-        {pendingFilesCount > 0 && activeDevice && (
+        {/* Desktop Send Button */}
+        {showSendArea && (
             <button 
                 onClick={onSend}
-                className="hidden md:flex items-center gap-2 bg-primary-600 hover:bg-primary-500 text-white px-4 py-2 rounded-lg font-medium shadow-lg shadow-primary-600/20 transition-all active:scale-95"
+                disabled={isSendDisabled}
+                className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-lg font-medium shadow-lg transition-all active:scale-95 ${
+                    isSendDisabled 
+                    ? 'bg-slate-700 text-slate-400 cursor-not-allowed opacity-75' 
+                    : 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-600/20'
+                }`}
             >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-                Send {pendingFilesCount} File{pendingFilesCount > 1 ? 's' : ''}
+                {isSendDisabled ? 'Waiting for device...' : `Send ${pendingFilesCount} File${pendingFilesCount > 1 ? 's' : ''}`}
             </button>
         )}
       </div>
@@ -232,13 +235,18 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
       </div>
 
       {/* Floating Action Button for Send (Mobile) */}
-      {pendingFilesCount > 0 && activeDevice ? (
+      {showSendArea ? (
          <button 
            onClick={onSend}
-           className="fixed bottom-8 right-8 h-14 px-6 bg-primary-600 hover:bg-primary-500 text-white rounded-full shadow-2xl shadow-primary-600/40 flex items-center gap-2 justify-center transition-transform hover:scale-105 z-20"
+           disabled={isSendDisabled}
+           className={`fixed bottom-8 right-8 h-14 px-6 rounded-full shadow-2xl flex items-center gap-2 justify-center transition-transform hover:scale-105 z-20 ${
+              isSendDisabled
+              ? 'bg-slate-700 text-slate-400 cursor-not-allowed'
+              : 'bg-primary-600 hover:bg-primary-500 text-white shadow-primary-600/40'
+           }`}
          >
            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
-           <span className="font-bold">Send ({pendingFilesCount})</span>
+           <span className="font-bold">{isSendDisabled ? 'Waiting...' : `Send (${pendingFilesCount})`}</span>
          </button>
       ) : (
          /* Upload button only if nothing to send */
@@ -250,7 +258,7 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
          </button>
       )}
 
-      {/* Preview Modal (Same as before) */}
+      {/* Preview Modal */}
       {previewFile && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm animate-fade-in" onClick={() => setPreviewFile(null)}>
               <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent z-50" onClick={e => e.stopPropagation()}>
