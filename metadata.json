@@ -1,0 +1,8 @@
+{
+  "name": "NeuroSync - AI Smart Transfer",
+  "description": "A cross-platform file transfer hub powered by Gemini. Transfer files between devices and automatically analyze, tag, and summarize content using Google's GenAI.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
