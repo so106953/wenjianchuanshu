@@ -5,9 +5,10 @@ interface TransferAreaProps {
   files: TransferFile[];
   onFileUpload: (files: FileList) => void;
   activeDevice: ConnectedDevice | null;
+  onSend: () => void;
 }
 
-export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload, activeDevice }) => {
+export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload, activeDevice, onSend }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [previewFile, setPreviewFile] = useState<TransferFile | null>(null);
@@ -21,7 +22,6 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
       setTextContent('');
     }
 
-    // Lock body scroll when modal is open
     if (previewFile) {
         document.body.style.overflow = 'hidden';
     } else {
@@ -52,6 +52,7 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
   };
 
   const renderAnalysisStatus = (file: TransferFile) => {
+    // Only show analysis for files we own or have received
     if (file.analysisStatus === 'analyzing') {
       return (
         <span className="flex items-center gap-1.5 text-xs text-amber-400 bg-amber-400/10 px-2 py-1 rounded-full border border-amber-400/20">
@@ -74,6 +75,26 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
     return null;
   };
 
+  const renderTransferStatus = (file: TransferFile) => {
+      // Don't show status for files from others, just "Received" implied by "From: XYZ"
+      if (file.fromDevice !== 'Me') {
+          return <span className="text-[10px] text-emerald-400 font-bold bg-emerald-400/10 px-2 py-0.5 rounded">RECEIVED</span>;
+      }
+      
+      switch (file.transferStatus) {
+          case 'queued':
+              return <span className="text-[10px] text-slate-400 font-medium bg-slate-700/50 px-2 py-0.5 rounded">QUEUED</span>;
+          case 'sending':
+              return <span className="text-[10px] text-blue-400 font-bold bg-blue-400/10 px-2 py-0.5 rounded animate-pulse">SENDING...</span>;
+          case 'completed':
+              return <span className="text-[10px] text-emerald-400 font-bold bg-emerald-400/10 px-2 py-0.5 rounded">SENT</span>;
+          case 'failed':
+              return <span className="text-[10px] text-red-400 font-bold bg-red-400/10 px-2 py-0.5 rounded">FAILED</span>;
+          default:
+              return null;
+      }
+  };
+
   const formatSize = (bytes: number) => {
     if (bytes === 0) return '0 B';
     const k = 1024;
@@ -82,35 +103,21 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  // Preview Modal Content
+  // Files ready to send
+  const pendingFilesCount = files.filter(f => f.fromDevice === 'Me' && f.transferStatus === 'queued').length;
+
+  // Preview Modal Content (Keep existing code)
   const renderPreviewContent = () => {
       if (!previewFile) return null;
-
       switch(previewFile.type) {
           case FileType.IMAGE:
-              // Using object-contain to ensure original aspect ratio and full visibility without cropping
-              return (
-                  <img 
-                    src={previewFile.url} 
-                    alt={previewFile.name} 
-                    className="max-w-full max-h-[85vh] object-contain shadow-2xl rounded-md" 
-                  />
-              );
+              return <img src={previewFile.url} alt={previewFile.name} className="max-w-full max-h-[85vh] object-contain shadow-2xl rounded-md" />;
           case FileType.VIDEO:
-              return (
-                  <video 
-                    controls 
-                    autoPlay 
-                    src={previewFile.url} 
-                    className="max-w-full max-h-[85vh] shadow-2xl rounded-md outline-none bg-black" 
-                  />
-              );
+              return <video controls autoPlay src={previewFile.url} className="max-w-full max-h-[85vh] shadow-2xl rounded-md outline-none bg-black" />;
           case FileType.TEXT:
               return (
                   <div className="bg-slate-800 p-8 rounded-lg shadow-2xl max-w-4xl w-full max-h-[80vh] overflow-y-auto border border-slate-700">
-                      <pre className="text-sm font-mono text-slate-300 whitespace-pre-wrap break-words">
-                          {textContent || "Loading text..."}
-                      </pre>
+                      <pre className="text-sm font-mono text-slate-300 whitespace-pre-wrap break-words">{textContent || "Loading text..."}</pre>
                   </div>
               );
           default:
@@ -126,16 +133,7 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
 
   return (
     <div className="flex-1 flex flex-col h-full bg-slate-900 relative">
-      {/* Hidden Input */}
-      <input 
-        type="file" 
-        multiple 
-        className="hidden" 
-        ref={fileInputRef} 
-        onChange={(e) => {
-            if(e.target.files) onFileUpload(e.target.files);
-        }}
-      />
+      <input type="file" multiple className="hidden" ref={fileInputRef} onChange={(e) => { if(e.target.files) onFileUpload(e.target.files); }} />
 
       {/* Header */}
       <div className="h-16 border-b border-slate-700 flex items-center justify-between px-8 bg-slate-900/50 backdrop-blur-md sticky top-0 z-10">
@@ -144,18 +142,20 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
             {activeDevice ? `Connected to ${activeDevice.name}` : 'Select a device'}
           </h2>
           <p className="text-xs text-slate-500">
-            {activeDevice ? 'Ready to send/receive files' : 'Choose a device from the sidebar to start'}
+            {activeDevice ? 'Ready to transfer' : 'Choose a device from the sidebar'}
           </p>
         </div>
-        <div className="flex gap-2">
-           {/* Mock actions */}
-            <button className="p-2 text-slate-400 hover:text-white transition-colors" title="Filter">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+        
+        {/* Send Button in Header if files are pending */}
+        {pendingFilesCount > 0 && activeDevice && (
+            <button 
+                onClick={onSend}
+                className="hidden md:flex items-center gap-2 bg-primary-600 hover:bg-primary-500 text-white px-4 py-2 rounded-lg font-medium shadow-lg shadow-primary-600/20 transition-all active:scale-95"
+            >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                Send {pendingFilesCount} File{pendingFilesCount > 1 ? 's' : ''}
             </button>
-            <button className="p-2 text-slate-400 hover:text-white transition-colors" title="Grid View">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
-            </button>
-        </div>
+        )}
       </div>
 
       {/* Main Content */}
@@ -170,20 +170,11 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
                 onDrop={handleDrop}
             >
                 <div className="w-20 h-20 bg-slate-800 rounded-full flex items-center justify-center mb-6 shadow-lg shadow-black/20">
-                    <svg className="w-10 h-10 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                    </svg>
+                    <svg className="w-10 h-10 text-primary-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
                 </div>
                 <h3 className="text-xl font-medium text-white mb-2">Drop files to send</h3>
-                <p className="text-slate-500 mb-8 max-w-sm text-center">
-                    Files dropped here will be analyzed by Gemini AI for smart tagging and summaries.
-                </p>
-                <button 
-                    onClick={triggerFileInput}
-                    className="px-6 py-2.5 bg-primary-600 hover:bg-primary-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-primary-600/20"
-                >
-                    Browse Files
-                </button>
+                <p className="text-slate-500 mb-8 max-w-sm text-center">Files dropped here will be analyzed by Gemini AI.</p>
+                <button onClick={triggerFileInput} className="px-6 py-2.5 bg-primary-600 hover:bg-primary-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-primary-600/20">Browse Files</button>
             </div>
         )}
 
@@ -208,8 +199,6 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
                                 )}
                             </svg>
                         )}
-                        
-                        {/* Overlay Icon for Video */}
                         {file.type === FileType.VIDEO && (
                             <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                                 <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
@@ -225,14 +214,12 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
                             <span className="text-[10px] text-slate-500 bg-slate-700/50 px-1.5 py-0.5 rounded">{formatSize(file.size)}</span>
                         </div>
                         
-                        {/* Gemini Metadata */}
+                        <div className="flex items-center justify-between mb-2">
+                            {renderTransferStatus(file)}
+                        </div>
+
                         {renderAnalysisStatus(file)}
-                        
-                        {file.metaData?.summary && (
-                            <p className="text-xs text-slate-400 mt-2 line-clamp-2 border-l-2 border-primary-500/30 pl-2">
-                                {file.metaData.summary}
-                            </p>
-                        )}
+                        {file.metaData?.summary && <p className="text-xs text-slate-400 mt-2 line-clamp-2 border-l-2 border-primary-500/30 pl-2">{file.metaData.summary}</p>}
 
                         <div className="mt-4 flex justify-between items-center text-[10px] text-slate-500">
                              <span>From: {file.fromDevice}</span>
@@ -244,47 +231,45 @@ export const TransferArea: React.FC<TransferAreaProps> = ({ files, onFileUpload,
         </div>
       </div>
 
-      {/* Floating Upload Button (Mobile/Tablet friendly) */}
-      <button 
-        onClick={triggerFileInput}
-        className="fixed bottom-8 right-8 w-14 h-14 bg-primary-600 hover:bg-primary-500 text-white rounded-full shadow-2xl shadow-primary-600/40 flex items-center justify-center transition-transform hover:scale-110 md:hidden z-10"
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-      </button>
+      {/* Floating Action Button for Send (Mobile) */}
+      {pendingFilesCount > 0 && activeDevice ? (
+         <button 
+           onClick={onSend}
+           className="fixed bottom-8 right-8 h-14 px-6 bg-primary-600 hover:bg-primary-500 text-white rounded-full shadow-2xl shadow-primary-600/40 flex items-center gap-2 justify-center transition-transform hover:scale-105 z-20"
+         >
+           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+           <span className="font-bold">Send ({pendingFilesCount})</span>
+         </button>
+      ) : (
+         /* Upload button only if nothing to send */
+         <button 
+            onClick={triggerFileInput}
+            className="fixed bottom-8 right-8 w-14 h-14 bg-slate-700 hover:bg-slate-600 text-white rounded-full shadow-xl flex items-center justify-center transition-transform hover:scale-110 md:hidden z-10"
+         >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+         </button>
+      )}
 
-      {/* Preview Modal */}
+      {/* Preview Modal (Same as before) */}
       {previewFile && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm animate-fade-in" onClick={() => setPreviewFile(null)}>
-              
-              {/* Toolbar */}
               <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center bg-gradient-to-b from-black/80 to-transparent z-50" onClick={e => e.stopPropagation()}>
                   <div className="text-white">
                       <h3 className="text-sm font-medium">{previewFile.name}</h3>
                       <p className="text-xs text-slate-400">{formatSize(previewFile.size)} • {previewFile.type}</p>
                   </div>
                   <div className="flex gap-3">
-                      <a 
-                        href={previewFile.url} 
-                        download={previewFile.name}
-                        className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition-colors"
-                        title="Download Original"
-                      >
+                      <a href={previewFile.url} download={previewFile.name} className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-white transition-colors">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                       </a>
-                      <button 
-                        onClick={() => setPreviewFile(null)}
-                        className="p-2 rounded-full bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 transition-colors"
-                      >
+                      <button onClick={() => setPreviewFile(null)} className="p-2 rounded-full bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-400 transition-colors">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                       </button>
                   </div>
               </div>
-
-              {/* Content Container */}
               <div className="w-full h-full flex items-center justify-center p-4 md:p-8" onClick={e => e.stopPropagation()}>
                   {renderPreviewContent()}
               </div>
-
           </div>
       )}
     </div>

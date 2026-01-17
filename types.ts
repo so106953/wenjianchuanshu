@@ -1,7 +1,7 @@
 export enum FileType {
   IMAGE = 'IMAGE',
   TEXT = 'TEXT',
-  PDF = 'PDF', // Treated as text for simplicity in this demo if text extraction were added
+  PDF = 'PDF',
   VIDEO = 'VIDEO',
   UNKNOWN = 'UNKNOWN'
 }
@@ -14,11 +14,12 @@ export enum DeviceType {
 }
 
 export interface ConnectedDevice {
-  id: string;
+  id: string; // Peer ID
   name: string;
   type: DeviceType;
   status: 'online' | 'transferring' | 'offline';
-  ip: string;
+  ip?: string;
+  connection?: any; // PeerJS DataConnection
 }
 
 export interface SmartMetaData {
@@ -28,9 +29,11 @@ export interface SmartMetaData {
   language?: string;
 }
 
+export type TransferStatus = 'queued' | 'sending' | 'completed' | 'failed' | 'received';
+
 export interface TransferFile {
   id: string;
-  fileObject: File;
+  fileObject: File | Blob; // Can be a received Blob
   name: string;
   size: number;
   type: FileType;
@@ -38,5 +41,13 @@ export interface TransferFile {
   timestamp: number;
   fromDevice: string;
   analysisStatus: 'pending' | 'analyzing' | 'completed' | 'failed' | 'skipped';
+  transferStatus: TransferStatus;
+  progress?: number; // 0-100
   metaData?: SmartMetaData;
+}
+
+// P2P Message Protocol
+export interface P2PMessage {
+    type: 'HANDSHAKE' | 'FILE_META' | 'FILE_CHUNK' | 'FILE_END';
+    payload: any;
 }

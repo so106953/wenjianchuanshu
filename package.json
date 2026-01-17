@@ -12,7 +12,8 @@
     "react-dom": "^19.2.3",
     "@google/genai": "^1.37.0",
     "react": "^19.2.3",
-    "qrcode": "1.5.3"
+    "qrcode": "1.5.3",
+    "peerjs": "1.5.4"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
